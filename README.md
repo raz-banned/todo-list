@@ -13,7 +13,7 @@ A simple app for managing tasks.
 
 ## Screenshots
 
-<img src="assets/screenshot.png" alt="TodoList Screenshot" width="800">
+<img src="assets/screenshot.png" alt="TodoList Screenshot" width="800px">
 
 ## Stack
 
