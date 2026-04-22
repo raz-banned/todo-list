@@ -7,19 +7,25 @@
 // 4. Добавь обработчики событий
 
 // получение с dom
-const button = document.querySelector('#addButton');
-const list = document.querySelector('#todoList');
-const clear = document.querySelector('#clearCompleted');
-const filterBtns = document.querySelector('.filters');
-const counter = document.querySelector('#counter');
-const input = document.querySelector('#todoInput');
+const button = document.querySelector<HTMLButtonElement>('#addButton');
+const list = document.querySelector<HTMLUListElement>('#todoList');
+const clear = document.querySelector<HTMLButtonElement>('#clearCompleted');
+const filterBtns = document.querySelector<HTMLDivElement>('.filters');
+const counter = document.querySelector<HTMLSpanElement>('#counter');
+const input = document.querySelector<HTMLInputElement>('#todoInput');
+interface Todo {
+  id: string;
+  text: string;
+  isCompleted: boolean;
+}
 
 // массив задач
-let todoList = JSON.parse(localStorage.getItem('todos')) || [];
+let todoList: Todo[] = JSON.parse(localStorage.getItem('todos') || '[]');
 
 // обновление и сохранение значений
 const updateCounter = () => {
-  const activeCount = todoList.filter((element) => !element.completed);
+  const activeCount = todoList.filter((element) => !element.isCompleted);
+  if (!counter) return;
   counter.textContent = `Активных задач: ${activeCount.length}`;
 };
 
@@ -37,16 +43,16 @@ if (todoList.length > 0) {
 // функция создает задачу
 function createTodo() {
   // информация о задаче отдается массиву
-  if (!input.value.trim()) return;
+  if (!input?.value.trim()) return;
   const info = () => {
     const id = crypto.randomUUID();
     const text = input.value;
-    const completed = false;
+    const isCompleted = false;
 
     return {
       id,
       text,
-      completed,
+      isCompleted,
     };
   };
   const createInstance = info();
@@ -60,7 +66,7 @@ function createTodo() {
 }
 
 // рендеринг в dom
-function renderTodo(todoInstance) {
+function renderTodo(todoInstance: Todo) {
   // элементы с dom
   const item = document.createElement('li');
   const itemText = document.createElement('span');
@@ -68,7 +74,7 @@ function renderTodo(todoInstance) {
 
   // присваивание свойств
   item.classList = 'todo-item';
-  if (todoInstance.completed) {
+  if (todoInstance.isCompleted) {
     item.classList.add('completed');
   }
 
@@ -81,35 +87,35 @@ function renderTodo(todoInstance) {
   // добавление в dom
   item.appendChild(itemText);
   item.appendChild(deleteBtn);
-  list.appendChild(item);
+  list?.appendChild(item);
 
   updateCounter();
 
   // слушатели
   itemText.addEventListener('click', () => {
-    completed(todoInstance, item);
+    handleComplete(todoInstance, item);
   });
 
   deleteBtn.addEventListener('click', () => {
-    remove(todoInstance, item);
+    handleRemove(todoInstance, item);
   });
 
-  const events = ['dblclick', 'keydown', 'blur'];
+  const events = ['dblclick', 'keydown', 'blur'] as const;
   events.forEach((event) => {
     itemText.addEventListener(event, (e) => edit(e, itemText, todoInstance));
   });
 }
 
 // триггеры функции от слушателя
-const completed = (info, listELement) => {
+const handleComplete = (info: Todo, listELement: HTMLLIElement) => {
   listELement.classList.toggle('completed');
-  info.completed = !info.completed;
+  info.isCompleted = !info.isCompleted;
 
   updateCounter();
   storageSave();
 };
 
-const remove = (info, listElement) => {
+const handleRemove = (info: Todo, listElement: HTMLLIElement) => {
   const index = todoList.indexOf(info);
 
   if (index > -1) {
@@ -123,15 +129,16 @@ const remove = (info, listElement) => {
 
 // фильтры
 
-function filter(e) {
+function filter(e: MouseEvent) {
   const btn = document.querySelectorAll('.filter-btn');
+  const target = e.target as HTMLButtonElement;
 
-  const filterType = e.target.dataset.filter;
+  const filterType = target.dataset?.filter;
   if (!filterType) return;
 
   btn.forEach((btn) => {
     btn.classList.remove('active');
-    e.target.classList.add('active');
+    target.classList.add('active');
   });
 
   const items = document.querySelectorAll('.todo-item');
@@ -147,13 +154,11 @@ function filter(e) {
   });
 }
 
-filterBtns.addEventListener('click', (e) => {
-  filter(e);
-});
+filterBtns?.addEventListener('click', filter);
 
 const clearAll = () => {
   const item = document.querySelectorAll('li');
-  const filteredList = todoList.filter((element) => !element.completed);
+  const filteredList = todoList.filter((element) => !element.isCompleted);
   todoList = filteredList;
 
   item.forEach((element) => {
@@ -164,40 +169,40 @@ const clearAll = () => {
   storageSave();
 };
 
-clear.addEventListener('click', clearAll);
+clear?.addEventListener('click', clearAll);
 
-function edit(e, text, info) {
+type EditEvents = MouseEvent | KeyboardEvent | FocusEvent;
+
+function edit(e: EditEvents, text: HTMLSpanElement, info: Todo) {
   if (e.type === 'dblclick') {
-    text.contentEditable = true;
+    text.contentEditable = 'true';
     text.focus();
   }
   // 2. Обработка клавиш (только если это keydown)
-  if (e.type === 'keydown') {
+  if (e.type === 'keydown' && e instanceof KeyboardEvent) {
     if (e.key === 'Enter') {
       e.preventDefault(); // Отменяем перенос строки
       text.blur(); // Просто вызываем blur, а остальное сделает обработчик blur
-    }
-    if (e.key === 'Escape') {
-      text.contentEditable = false; // Отмена без сохранения (опционально)
+    } else if (e.key === 'Escape') {
+      text.contentEditable = 'false'; // Отмена без сохранения (опционально)
     }
   }
-
   // 3. Сохранение (срабатывает при потере фокуса или вызове .blur())
-  if (e.type === 'blur' && text.contentEditable === 'true') {
-    if (text.textContent.trim().length < 1) {
+  else if (e.type === 'blur' && text.contentEditable === 'true') {
+    if ((text.textContent ?? '').trim().length < 1) {
       text.textContent = info.text; // вернуть старый текст
     } else {
-      info.text = text.textContent; // ← сохранить новый текст
+      info.text = text.textContent ?? info.text; // ← сохранить новый текст
       storageSave(); // ← сохранить в localStorage
     }
-    text.contentEditable = false;
+    text.contentEditable = 'false';
     // Здесь можно вызвать функцию обновления в БД или API
     console.log('Сохранено:', info.text);
   }
 }
 
 // слушатель создания задачи
-button.addEventListener('click', createTodo);
-input.addEventListener('keydown', (e) => {
+button?.addEventListener('click', createTodo);
+input?.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') createTodo();
 });
